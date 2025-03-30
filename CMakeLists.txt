@@ -17,7 +17,7 @@ set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_SOURCE_DIR}/bin)
 # Add subdirectories
 add_subdirectory(00_memory_pool)
 add_subdirectory(01_memory_pool_imp)
-add_subdirectory(03_ring_buffers_imp)
+add_subdirectory(03_ring_buffers_mempool)
 add_subdirectory(04_shared_mempool)
 add_subdirectory(05_chat_room)
 
