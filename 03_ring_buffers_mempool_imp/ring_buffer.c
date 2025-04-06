@@ -1,22 +1,30 @@
-
 #include "ring_buffer.h"
-#define NEED_IMP 0XDEADDEAD
+#include <stdlib.h>
+
+/**
+ * Get memory size required for a ring buffer with given capacity
+ *
+ * @param capacity Desired capacity of the ring buffer
+ * @return Size in bytes needed for the ring buffer structure
+ */
+size_t ring_buffer_size(uint32_t capacity) {
+    return sizeof(ring_buffer_t) + (capacity * sizeof(void*));
+}
 
 /**
  * Initialize a ring buffer
  * 
  * @param rb Pointer to ring buffer structure
- * @param buffer Array to use for storing pointers
  * @param capacity Maximum number of elements the buffer can hold
  * @return true on success, false on failure
  */
-bool ring_buffer_init(ring_buffer_t* rb, void** buffer, uint32_t capacity) {
+bool ring_buffer_init(ring_buffer_t* rb, uint32_t capacity) {
     // Check for null pointers
-    if (rb == NULL || buffer == NULL || capacity == 0) {
+    if (rb == NULL || capacity == 0) {
         return false;
     }
+    
     // Initialize buffer structure
-    rb->buffer = buffer;
     rb->capacity = capacity;
     rb->head = 0;
     rb->tail = 0;
@@ -33,13 +41,15 @@ bool ring_buffer_init(ring_buffer_t* rb, void** buffer, uint32_t capacity) {
  * @return true if successful, false if buffer is full
  */
 bool ring_buffer_put(ring_buffer_t* rb, void* item) {
-    // Check for null pointers
+    // Check for null pointers or full buffer
     if (rb == NULL || rb->count >= rb->capacity) {
         return false;  // Buffer is full
     }
-    // assign item
+    
+    // Assign item
     rb->buffer[rb->tail] = item;
-    // advance tail
+    
+    // Advance tail
     rb->tail = (rb->tail + 1) % rb->capacity;
     rb->count++;
     
@@ -53,13 +63,15 @@ bool ring_buffer_put(ring_buffer_t* rb, void* item) {
  * @return Pointer from the buffer, or NULL if buffer is empty
  */
 void* ring_buffer_get(ring_buffer_t* rb) {
-    // Check for null pointers
+    // Check for null pointers or empty buffer
     if (rb == NULL || rb->count == 0) {
         return NULL;  // Buffer is empty
     }
-    // get item
+    
+    // Get item
     void* item = rb->buffer[rb->head];
-    // advance head
+    
+    // Advance head
     rb->head = (rb->head + 1) % rb->capacity;
     rb->count--;
     

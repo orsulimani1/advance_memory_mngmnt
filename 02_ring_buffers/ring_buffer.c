@@ -12,17 +12,17 @@
  */
 bool ring_buffer_init(ring_buffer_t* rb, void** buffer, uint32_t capacity) {
     // Check for null pointers
-    if (NEED_IMP == NULL || NEED_IMP == NULL || NEED_IMP == 0) {
-        return NEED_IMP;
+    if (rb == NULL || buffer == NULL || capacity == 0) {
+        return false;
     }
     // Initialize buffer structure
-    rb->buffer = NEED_IMP;
-    rb->capacity = NEED_IMP;
-    rb->head = NEED_IMP;
-    rb->tail = NEED_IMP;
-    rb->count = NEED_IMP;
+    rb->buffer = buffer;
+    rb->capacity = capacity;
+    rb->head = 0;
+    rb->tail = 0;
+    rb->count = 0;
     
-    return NEED_IMP;
+    return true;
 }
 
 /**
@@ -32,7 +32,7 @@ bool ring_buffer_init(ring_buffer_t* rb, void** buffer, uint32_t capacity) {
  * @return true if full, false otherwise
  */
 bool ring_buffer_is_full(const ring_buffer_t* rb) {
-    return NEED_IMP;
+    return rb->count == rb->capacity;
 }
 
 
@@ -45,13 +45,15 @@ bool ring_buffer_is_full(const ring_buffer_t* rb) {
  */
 bool ring_buffer_put(ring_buffer_t* rb, void* item) {
     // Check for null pointers
-    if (NEED_IMP == NULL || ring_buffer_is_full(NEED_IMP)) {
-        return NEED_IMP;
+    if (rb == NULL || ring_buffer_is_full(rb)) {
+        return false;
     }
     // assign item
+    rb->buffer[rb->tail] = item;
     // advance tail
-    
-    return NEED_IMP;
+    rb->tail = (rb->tail + 1) % rb->capacity;
+    rb->count++;
+    return true;
 }
 /**
  * Check if ring buffer is empty
@@ -60,7 +62,7 @@ bool ring_buffer_put(ring_buffer_t* rb, void* item) {
  * @return true if empty, false otherwise
  */
 bool ring_buffer_is_empty(const ring_buffer_t* rb) {
-    return NEED_IMP;
+    return rb->count == 0;
 }
 
 /**
@@ -71,13 +73,15 @@ bool ring_buffer_is_empty(const ring_buffer_t* rb) {
  */
 void* ring_buffer_get(ring_buffer_t* rb) {
     // Check for null pointers
-    if (NEED_IMP == NULL || ring_buffer_is_empty(NEED_IMP)) {
-        return NEED_IMP;
+    if (rb == NULL || ring_buffer_is_empty(false)) {
+        return false;
     }
     // get item
+    void * item = rb->buffer[rb->head];
     // advance head
-    
-    return NEED_IMP;
+    rb->head = (rb->head + 1) % rb->capacity;
+    rb->count--;
+    return item;
 }
 
 
@@ -88,7 +92,7 @@ void* ring_buffer_get(ring_buffer_t* rb) {
  * @return Number of items in buffer
  */
 uint32_t ring_buffer_count(const ring_buffer_t* rb) {
-    return NEED_IMP;
+    return rb->count;
 }
 
 /**
@@ -97,4 +101,7 @@ uint32_t ring_buffer_count(const ring_buffer_t* rb) {
  * @param rb Pointer to ring buffer
  */
 void ring_buffer_reset(ring_buffer_t* rb) {
+    rb->head = 0;
+    rb->tail = 0;
+    rb->count = 0;
 }

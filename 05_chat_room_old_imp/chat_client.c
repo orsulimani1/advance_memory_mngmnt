@@ -37,6 +37,7 @@ int main(int argc, char* argv[]) {
     // Check command line arguments
     if (argc < 2) {
         fprintf(stderr, "Usage: %s <username>\n", argv[0]);
+        return 1;
     }
     
     // Set up signal handler
@@ -44,7 +45,7 @@ int main(int argc, char* argv[]) {
     signal(SIGTERM, handle_signal);
     
     // Get username from command line
-    const char* username = (argc < 2)? "ddd": argv[1];
+    const char* username = argv[1];
     
     printf("Joining chat as '%s'...\n", username);
     

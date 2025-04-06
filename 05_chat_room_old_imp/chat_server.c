@@ -63,7 +63,7 @@ int main() {
         }
         
         // Sleep to avoid busy waiting
-        usleep(100);  // 100ms
+        usleep(100000);  // 100ms
     }
     
     // Clean up resources

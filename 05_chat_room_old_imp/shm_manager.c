@@ -12,7 +12,6 @@
 static mem_pool_t message_pool;
 static ring_buffer_t* message_ring = NULL;
 static participants_directory_t* participants = NULL;
-static message_tracker_t* message_tracker = NULL;
 static int my_participant_id = -1;
 static bool is_server = false;
 
@@ -26,30 +25,12 @@ static uint32_t get_timestamp(void) {
     return (uint32_t)time(NULL);
 }
 
-// Calculate active participants mask
-static uint32_t calculate_active_mask(void) {
-    uint32_t mask = 0;
-    
-    if (participants == NULL) {
-        return 0;
-    }
-    
-    for (int i = 0; i < MAX_PARTICIPANTS; i++) {
-        if (participants->participants[i].status == PARTICIPANT_ACTIVE) {
-            mask |= (1 << i);
-        }
-    }
-    
-    return mask;
-}
-
 // Initialize shared memory for chat server
 bool init_chat_server(void) {
     // Clean up any existing shared memory with these names
     shm_unlink(SHM_CHAT_POOL);
     shm_unlink(SHM_CHAT_RING);
     shm_unlink(SHM_PARTICIPANTS);
-    shm_unlink(SHM_MESSAGE_TRACKER);
 
     // Create shared memory for the participants directory
     int participants_fd = shm_open(SHM_PARTICIPANTS, O_CREAT | O_RDWR, 0666);
@@ -77,7 +58,6 @@ bool init_chat_server(void) {
     
     // Initialize participants directory
     memset(participants, 0, sizeof(participants_directory_t));
-    usleep(350000);
     participants->count = 0;
     participants->last_ping = get_timestamp();
     
@@ -124,53 +104,13 @@ bool init_chat_server(void) {
         munmap(participants, sizeof(participants_directory_t));
         return false;
     }
-    memset(ring_memory, 0, ring_size);
-
+    
     // Initialize the ring buffer
     message_ring = (ring_buffer_t*)ring_memory;
     ring_buffer_init(message_ring, RING_BUFFER_SIZE);
     
     // Close file descriptor (mapping remains)
     close(ring_fd);
-    
-    // Create shared memory for the message tracker
-    int tracker_fd = shm_open(SHM_MESSAGE_TRACKER, O_CREAT | O_RDWR, 0666);
-    if (tracker_fd == -1) {
-        perror("Failed to create message tracker shared memory");
-        munmap(message_ring, ring_size);
-        memory_pool_destroy(&message_pool, true);
-        munmap(participants, sizeof(participants_directory_t));
-        return false;
-    }
-    
-    // Set the size of the message tracker
-    if (ftruncate(tracker_fd, sizeof(message_tracker_t)) == -1) {
-        perror("Failed to set message tracker size");
-        close(tracker_fd);
-        munmap(message_ring, ring_size);
-        memory_pool_destroy(&message_pool, true);
-        munmap(participants, sizeof(participants_directory_t));
-        return false;
-    }
-    
-    // Map the message tracker
-    message_tracker = mmap(NULL, sizeof(message_tracker_t), 
-                          PROT_READ | PROT_WRITE, MAP_SHARED, 
-                          tracker_fd, 0);
-    if (message_tracker == MAP_FAILED) {
-        perror("Failed to map message tracker");
-        close(tracker_fd);
-        munmap(message_ring, ring_size);
-        memory_pool_destroy(&message_pool, true);
-        munmap(participants, sizeof(participants_directory_t));
-        return false;
-    }
-    
-    // Initialize the message tracker
-    tracker_init(message_tracker);
-    
-    // Close file descriptor (mapping remains)
-    close(tracker_fd);
     
     // Register the server as participant 0
     participants->participants[0].pid = getpid();
@@ -198,12 +138,6 @@ void cleanup_chat_server(void) {
         participants = NULL;
     }
     
-    // Unmap the message tracker
-    if (message_tracker != NULL) {
-        munmap(message_tracker, sizeof(message_tracker_t));
-        message_tracker = NULL;
-    }
-    
     // Clean up message pool
     memory_pool_destroy(&message_pool, true);
     
@@ -218,7 +152,6 @@ void cleanup_chat_server(void) {
     shm_unlink(SHM_CHAT_POOL);
     shm_unlink(SHM_CHAT_RING);
     shm_unlink(SHM_PARTICIPANTS);
-    shm_unlink(SHM_MESSAGE_TRACKER);
 }
 
 // Join chat as a client
@@ -314,34 +247,6 @@ bool join_chat_client(const char* username) {
     // Close file descriptor (mapping remains)
     close(ring_fd);
     
-    // Connect to message tracker
-    int tracker_fd = shm_open(SHM_MESSAGE_TRACKER, O_RDWR, 0666);
-    if (tracker_fd == -1) {
-        perror("Failed to open message tracker shared memory");
-        munmap(message_ring, ring_size);
-        memory_pool_destroy(&message_pool, false);
-        munmap(participants, sizeof(participants_directory_t));
-        participants = NULL;
-        return false;
-    }
-    
-    // Map the message tracker
-    message_tracker = mmap(NULL, sizeof(message_tracker_t), 
-                          PROT_READ | PROT_WRITE, MAP_SHARED, 
-                          tracker_fd, 0);
-    if (message_tracker == MAP_FAILED) {
-        perror("Failed to map message tracker");
-        close(tracker_fd);
-        munmap(message_ring, ring_size);
-        memory_pool_destroy(&message_pool, false);
-        munmap(participants, sizeof(participants_directory_t));
-        participants = NULL;
-        return false;
-    }
-    
-    // Close file descriptor (mapping remains)
-    close(tracker_fd);
-    
     // Register as a participant
     participants->participants[slot].pid = getpid();
     strncpy(participants->participants[slot].username, username, MAX_USERNAME_LENGTH);
@@ -371,12 +276,6 @@ void leave_chat(void) {
     if (participants != NULL) {
         munmap(participants, sizeof(participants_directory_t));
         participants = NULL;
-    }
-    
-    // Unmap the message tracker
-    if (message_tracker != NULL) {
-        munmap(message_tracker, sizeof(message_tracker_t));
-        message_tracker = NULL;
     }
     
     // Clean up message pool
@@ -412,8 +311,9 @@ bool send_message(const char* message) {
         fprintf(stderr, "Failed to allocate memory for message\n");
         return false;
     }
+    
     // Set up message header
-    message_header_t* header = (message_header_t*)&message_pool.free_blocks->buffer;
+    message_header_t* header = (message_header_t*)block;
     header->timestamp = get_timestamp();
     strncpy(header->sender, participants->participants[my_participant_id].username, 
             MAX_USERNAME_LENGTH);
@@ -424,12 +324,9 @@ bool send_message(const char* message) {
     strncpy(message_data, message, message_len);
     message_data[message_len] = '\0';  // Ensure null-termination
     
-    // Calculate active participants mask
-    uint32_t active_mask = calculate_active_mask();
-    
-    // Add message to the tracker
-    if (!tracker_add_message(message_tracker, block, active_mask)) {
-        fprintf(stderr, "Failed to track message\n");
+    // Add message to the ring buffer
+    if (!ring_buffer_put(message_ring, block)) {
+        fprintf(stderr, "Failed to add message to ring buffer\n");
         memory_pool_free(&message_pool, block);
         return false;
     }
@@ -439,7 +336,7 @@ bool send_message(const char* message) {
 
 // Check for and handle new messages
 int process_new_messages(void (*message_callback)(const char* sender, const char* message)) {
-    if (my_participant_id < 0 || message_callback == NULL || message_tracker == NULL) {
+    if (my_participant_id < 0 || message_callback == NULL || message_ring == NULL) {
         return 0;  // Not connected
     }
     
@@ -448,13 +345,12 @@ int process_new_messages(void (*message_callback)(const char* sender, const char
     
     int messages_processed = 0;
     
-    // Process all available unread messages for this participant
-    int message_index;
-    while ((message_index = tracker_get_next_unread(message_tracker, my_participant_id)) >= 0) {
-        // Get the message from the tracker
-        void* block = tracker_get_message(message_tracker, message_index);
+    // Process all available messages
+    while (!ring_buffer_is_empty(message_ring)) {
+        // Get a message from the ring buffer
+        void* block = ring_buffer_get(message_ring);
         if (block == NULL) {
-            continue;  // Message no longer exists
+            break;  // No more messages
         }
         
         // Process the message
@@ -464,11 +360,8 @@ int process_new_messages(void (*message_callback)(const char* sender, const char
         // Call the callback function with sender and message
         message_callback(header->sender, message_data);
         
-        // Mark the message as read by this participant
-        tracker_mark_read(message_tracker, message_index, my_participant_id);
-        
-        // Try to free the message if all participants have read it
-        tracker_try_free_message(message_tracker, message_index, &message_pool);
+        // Free the message memory
+        memory_pool_free(&message_pool, block);
         
         messages_processed++;
     }

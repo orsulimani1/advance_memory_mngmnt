@@ -16,6 +16,7 @@ typedef struct
     uint64_t total_size;
     uint32_t num_blocks;      // Total number of blocks in the pool
     uint32_t block_size;      // Size of each block in bytes
+    uint32_t actual_block_size;      // Size of each block in bytes include status
     uint32_t free_count;      // Number of free blocks
 } mem_pool;
 

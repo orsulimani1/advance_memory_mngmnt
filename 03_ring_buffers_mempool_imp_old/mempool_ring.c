@@ -1,5 +1,6 @@
 #include "mempool_ring.h"
 
+
 /**
  * Initialize a memory pool
  * 
@@ -19,28 +20,37 @@ bool memory_pool_init(mem_pool_t* pool, void* memory, uint32_t memory_size, uint
         return false;
     }
     
-    // Calculate how many blocks we can fit
-    uint32_t potential_blocks = (memory_size / block_size);
+    // Reserve space at the beginning of memory for:
+    // 1. Ring buffer structure
+    // 2. Array of block pointers for the ring buffer
     
-    // Reserve space for the ring buffer structure (which now includes the array)
-    size_t rb_size = ring_buffer_size(potential_blocks);
+    uint32_t rb_struct_size = sizeof(ring_buffer_t);
+    uint32_t potential_blocks = (memory_size - rb_struct_size) / block_size;
+    uint32_t array_size = potential_blocks * sizeof(void*);
+    
+    // Total overhead size
+    uint32_t overhead_size = rb_struct_size + array_size;
     
     // Check if we have enough memory after overhead
-    if (memory_size <= rb_size + block_size) {
+    if (memory_size <= overhead_size + block_size) {
         return false;  // Not enough memory for even one block
     }
     
-    // Recalculate how many blocks we can actually fit
-    uint32_t actual_blocks = (memory_size - rb_size) / block_size;
+    // Calculate how many blocks we can actually fit
+    uint32_t actual_blocks = (memory_size - overhead_size) / block_size;
     
     // Set up memory layout
     uint8_t* mem_ptr = (uint8_t*)memory;
     
-    // 1. Ring buffer structure at the beginning (including the flexible array)
+    // 1. Ring buffer structure at the beginning
     ring_buffer_t* rb = (ring_buffer_t*)mem_ptr;
-    mem_ptr += rb_size;
+    mem_ptr += rb_struct_size;
     
-    // 2. Actual memory blocks start here
+    // 2. Array of block pointers
+    void** block_array = (void**)mem_ptr;
+    mem_ptr += actual_blocks * sizeof(void*);
+    
+    // 3. Actual memory blocks start here
     void* blocks_start = mem_ptr;
     
     // Initialize the pool structure
@@ -49,9 +59,10 @@ bool memory_pool_init(mem_pool_t* pool, void* memory, uint32_t memory_size, uint
     pool->block_size = block_size;
     pool->num_blocks = actual_blocks;
     pool->free_blocks = rb;
+    pool->block_array = block_array;
     
     // Initialize the ring buffer
-    if (!ring_buffer_init(rb, actual_blocks)) {
+    if (!ring_buffer_init(rb, block_array, actual_blocks)) {
         return false;
     }
     

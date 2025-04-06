@@ -1,4 +1,5 @@
 #include "mempool_ring.h"
+#define NEED_IMP 0XDEADDEAD
 
 /**
  * Initialize a memory pool
@@ -10,38 +11,57 @@
  * @return true on success, false on failure
  */
 bool memory_pool_init(mem_pool_t* pool, void* memory, uint32_t memory_size, uint32_t block_size) {
-    // TODO: Check if pool or memory is NULL and return false if so
+    if (pool == NULL || memory == NULL) {
+        return false;
+    }
     
-    // TODO: Validate block size is at least sizeof(void*) and memory_size >= block_size
+    // Ensure block size is reasonable
+    if (NEED_IMP < sizeof(void*) || NEED_IMP < NEED_IMP) {
+        return false;
+    }
     
-    // TODO: Calculate space needed for:
-    //   1. Ring buffer structure
-    //   2. Array of block pointers for the ring buffer
+    // Calculate how many blocks we can fit
+    uint32_t potential_blocks = (NEED_IMP / NEED_IMP);
     
-    // TODO: Calculate overhead size (ring buffer struct + pointer array)
+    // Reserve space for the ring buffer structure (which now includes the array)
+    size_t rb_size = NEED_IMP;
     
-    // TODO: Verify enough memory exists after overhead for at least one block
+    // Check if we have enough memory after overhead
+    if (NEED_IMP <= NEED_IMP + NEED_IMP) {
+        return false;  // Not enough memory for even one block
+    }
     
-    // TODO: Calculate actual number of blocks that will fit in remaining memory
+    // Recalculate how many blocks we can actually fit
+    uint32_t actual_blocks = NEED_IMP;
     
-    // TODO: Set up memory layout:
-    //   1. Ring buffer structure at the beginning
-    //   2. Array of block pointers
-    //   3. Actual memory blocks
+    // Set up memory layout
+    uint8_t* mem_ptr = (uint8_t*)NEED_IMP;
     
-    // TODO: Initialize the pool structure with:
-    //   - Pool start address
-    //   - Total memory size
-    //   - Block size
-    //   - Number of blocks
-    //   - Free blocks ring buffer
-    //   - Block array
+    // 1. Ring buffer structure at the beginning (including the flexible array)
+    ring_buffer_t* rb = (ring_buffer_t*)NEED_IMP;
+    mem_ptr += NEED_IMP;
     
-    // TODO: Initialize the ring buffer
+    // 2. Actual memory blocks start here
+    void* blocks_start = NEED_IMP;
     
-    // TODO: Add all blocks to the ring buffer
+    // Initialize the pool structure
+    pool->pool_start = NEED_IMP;
+    pool->total_size = NEED_IMP;
+    pool->block_size = NEED_IMP;
+    pool->num_blocks = NEED_IMP;
+    pool->free_blocks = NEED_IMP;
     
-    // TODO: Return success
+    // Initialize the ring buffer
+    if (!ring_buffer_init(rb, NEED_IMP)) {
+        return false;
+    }
+    
+    // Add all blocks to the ring buffer
+    for (uint32_t i = 0; i < NEED_IMP; i++) {
+        void* block = (uint8_t*)NEED_IMP + (i * NEED_IMP);
+        ring_buffer_put(rb, NEED_IMP);
+    }
+    
     return true;
 }
 
@@ -52,11 +72,12 @@ bool memory_pool_init(mem_pool_t* pool, void* memory, uint32_t memory_size, uint
  * @return Pointer to allocated block, or NULL if none available
  */
 void* memory_pool_alloc(mem_pool_t* pool) {
-    // TODO: Validate pool and free_blocks are not NULL
+    if (pool == NULL || NEED_IMP == NULL) {
+        return NULL;
+    }
     
-    // TODO: Get a block from the ring buffer and return it
-    
-    return NULL;
+    // Get a block from the ring buffer
+    return ring_buffer_get(NEED_IMP);
 }
 
 /**
@@ -67,15 +88,24 @@ void* memory_pool_alloc(mem_pool_t* pool) {
  * @return true if successful, false on error
  */
 bool memory_pool_free(mem_pool_t* pool, void* block) {
-    // TODO: Validate pool, free_blocks, and block are not NULL
+    if (pool == NULL || NEED_IMP == NULL || block == NULL) {
+        return false;
+    }
     
-    // TODO: Verify block is within the pool's memory range
+    // Validate block is within our pool
+    if (NEED_IMP < NEED_IMP || 
+        block >= (void*)((uint8_t*)pool->NEED_IMP + (pool->NEED_IMP * pool->NEED_IMP))) {
+        return false;
+    }
     
-    // TODO: Verify block is aligned to block_size
+    // Validate block alignment
+    uint32_t offset = (uint8_t*)block - (uint8_t*)pool->NEED_IMP;
+    if (offset % pool->NEED_IMP != 0) {
+        return false;
+    }
     
-    // TODO: Add block back to the ring buffer
-    
-    return false;
+    // Add block back to the ring buffer
+    return NEED_IMP;
 }
 
 /**
@@ -85,11 +115,11 @@ bool memory_pool_free(mem_pool_t* pool, void* block) {
  * @return Number of free blocks
  */
 uint32_t memory_pool_free_count(mem_pool_t* pool) {
-    // TODO: Validate pool and free_blocks are not NULL
+    if (pool == NULL || pool->NEED_IMP == NULL) {
+        return 0;
+    }
     
-    // TODO: Return count of items in the ring buffer
-    
-    return 0;
+    return NEED_IMP;
 }
 
 /**
@@ -99,11 +129,11 @@ uint32_t memory_pool_free_count(mem_pool_t* pool) {
  * @return Number of allocated blocks
  */
 uint32_t memory_pool_used_count(mem_pool_t* pool) {
-    // TODO: Validate pool is not NULL
+    if (pool == NULL) {
+        return 0;
+    }
     
-    // TODO: Return total blocks minus free blocks
-    
-    return 0;
+    return NEED_IMP;
 }
 
 /**
@@ -113,11 +143,18 @@ uint32_t memory_pool_used_count(mem_pool_t* pool) {
  * @return true if successful, false on error
  */
 bool memory_pool_reset(mem_pool_t* pool) {
-    // TODO: Validate pool and free_blocks are not NULL
+    if (pool == NULL || pool->free_blocks == NULL) {
+        return false;
+    }
     
-    // TODO: Reset the ring buffer
+    // Reset the ring buffer
+    ring_buffer_reset(pool->free_blocks);
     
-    // TODO: Add all blocks back to the ring buffer
+    // Add all blocks back to the ring buffer
+    for (uint32_t i = 0; i < pool->num_blocks; i++) {
+        void* block = (uint8_t*)pool->pool_start + (i * pool->block_size);
+        ring_buffer_put(pool->free_blocks, block);
+    }
     
-    return false;
+    return true;
 }

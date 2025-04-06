@@ -1,16 +1,5 @@
 #include "ring_buffer.h"
 #include <time.h>      // For nanosleep in spinlock
-#include <stdlib.h>    // For size_t
-
-/**
- * Get memory size required for a ring buffer with given capacity
- *
- * @param capacity Desired capacity of the ring buffer
- * @return Size in bytes needed for the ring buffer structure
- */
-size_t ring_buffer_size(uint32_t capacity) {
-    return sizeof(ring_buffer_t) + (capacity * sizeof(void*));
-}
 
 // Helper function for spinlock with backoff
 static void spinlock_acquire(atomic_uint* lock) {
@@ -36,16 +25,17 @@ static void spinlock_release(atomic_uint* lock) {
  * Initialize a ring buffer
  * 
  * @param rb Pointer to ring buffer structure
+ * @param buffer Array to use for storing pointers
  * @param capacity Maximum number of elements the buffer can hold
  * @return true on success, false on failure
  */
-bool ring_buffer_init(ring_buffer_t* rb, uint32_t capacity) {
+bool ring_buffer_init(ring_buffer_t* rb, void** buffer, uint32_t capacity) {
     // Check for null pointers
-    if (rb == NULL || capacity == 0) {
+    if (rb == NULL || buffer == NULL || capacity == 0) {
         return false;
     }
-    
     // Initialize buffer structure
+    rb->buffer = buffer;
     rb->capacity = capacity;
     atomic_store(&rb->head, 0);
     atomic_store(&rb->tail, 0);
@@ -118,8 +108,8 @@ void* ring_buffer_get(ring_buffer_t* rb) {
         uint32_t head = atomic_load(&rb->head);
         
         // Get the item
-        item = (void *)&rb->buffer[head];
-
+        item = rb->buffer[head];
+        
         // Update head position
         atomic_store(&rb->head, (head + 1) % rb->capacity);
         

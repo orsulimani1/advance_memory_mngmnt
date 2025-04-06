@@ -5,13 +5,11 @@
 #include <stdbool.h>
 #include "ring_buffer.h"
 #include "mempool_ring.h"
-#include "message_tracker.h"
 
 // Shared memory names
 #define SHM_CHAT_POOL "/chat_memory_pool"
 #define SHM_CHAT_RING "/chat_message_ring"
 #define SHM_PARTICIPANTS "/chat_participants"
-#define SHM_MESSAGE_TRACKER "/chat_message_tracker"
 
 // Constants
 #define MAX_PARTICIPANTS 32
@@ -19,7 +17,7 @@
 #define MAX_MESSAGE_LENGTH 256
 #define MEMORY_POOL_SIZE (1024 * 1024) // 1MB
 #define MESSAGE_BLOCK_SIZE (MAX_MESSAGE_LENGTH + 128) // Message plus overhead
-#define RING_BUFFER_SIZE 128
+#define RING_BUFFER_SIZE 100
 
 // Participant status
 typedef enum {

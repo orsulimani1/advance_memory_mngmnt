@@ -25,31 +25,37 @@ bool memory_pool_init(mem_pool_t* pool, void* memory, uint32_t memory_size, uint
         return false;
     }
     
-    // Calculate how many blocks we can fit
-    uint32_t potential_blocks = (memory_size / block_size);
+    // Reserve space at the beginning of memory for:
+    // 1. Ring buffer structure
+    // 2. Array of block pointers for the ring buffer
     
-    // Reserve space for the ring buffer structure with flexible array
-    size_t rb_size = ring_buffer_size(potential_blocks);
+    uint32_t rb_struct_size = sizeof(ring_buffer_t);
+    uint32_t potential_blocks = (memory_size - rb_struct_size) / block_size;
+    uint32_t array_size = potential_blocks * sizeof(void*);
+    
+    // Total overhead size
+    uint32_t overhead_size = rb_struct_size + array_size;
     
     // Check if we have enough memory after overhead
-    if (memory_size <= rb_size + block_size) {
+    if (memory_size <= overhead_size + block_size) {
         return false;  // Not enough memory for even one block
     }
     
-    // Recalculate how many blocks we can actually fit
-    uint32_t actual_blocks = (memory_size - rb_size) / block_size;
+    // Calculate how many blocks we can actually fit
+    uint32_t actual_blocks = (memory_size - overhead_size) / block_size;
     
     // Set up memory layout
     uint8_t* mem_ptr = (uint8_t*)memory;
     
-    // 1. Ring buffer structure at the beginning (including the flexible array)
+    // 1. Ring buffer structure at the beginning
     ring_buffer_t* rb = (ring_buffer_t*)mem_ptr;
-    rb->buffer[0] = (uint8_t *)mem_ptr + sizeof(ring_buffer_t) - sizeof(void *) ;
-
+    mem_ptr += rb_struct_size;
     
-    mem_ptr += rb_size;
+    // 2. Array of block pointers
+    void** block_array = (void**)mem_ptr;
+    mem_ptr += actual_blocks * sizeof(void*);
     
-    // 2. Actual memory blocks start here
+    // 3. Actual memory blocks start here
     void* blocks_start = mem_ptr;
     
     // Initialize the pool structure
@@ -58,11 +64,12 @@ bool memory_pool_init(mem_pool_t* pool, void* memory, uint32_t memory_size, uint
     pool->block_size = block_size;
     pool->num_blocks = actual_blocks;
     pool->free_blocks = rb;
+    pool->block_array = block_array;
     pool->shm_id = -1;        // Not using shared memory
     pool->shm_name = NULL;    // No shared memory name
     
     // Initialize the ring buffer
-    if (!ring_buffer_init(rb, actual_blocks)) {
+    if (!ring_buffer_init(rb, block_array, actual_blocks)) {
         return false;
     }
     
@@ -153,16 +160,21 @@ bool memory_pool_init_shared(mem_pool_t* pool, const char* shm_name, uint32_t me
     } else {
         // If attaching, just set up the pointers
         
-        // Calculate how many blocks we can fit with the flexible array
-        uint32_t potential_blocks = (memory_size / block_size);
-        size_t rb_size = ring_buffer_size(potential_blocks);
-        uint32_t actual_blocks = (memory_size - rb_size) / block_size;
+        // Calculate the same memory layout as in memory_pool_init
+        uint32_t rb_struct_size = sizeof(ring_buffer_t);
+        uint32_t potential_blocks = (memory_size - rb_struct_size) / block_size;
+        uint32_t array_size = potential_blocks * sizeof(void*);
+        uint32_t overhead_size = rb_struct_size + array_size;
+        uint32_t actual_blocks = (memory_size - overhead_size) / block_size;
         
         uint8_t* mem_ptr = (uint8_t*)memory;
         
         // Get pointers from shared memory
         ring_buffer_t* rb = (ring_buffer_t*)mem_ptr;
-        mem_ptr += rb_size;
+        mem_ptr += rb_struct_size;
+        
+        void** block_array = (void**)mem_ptr;
+        mem_ptr += actual_blocks * sizeof(void*);
         
         void* blocks_start = mem_ptr;
         
@@ -172,6 +184,7 @@ bool memory_pool_init_shared(mem_pool_t* pool, const char* shm_name, uint32_t me
         pool->block_size = block_size;
         pool->num_blocks = actual_blocks;
         pool->free_blocks = rb;
+        pool->block_array = block_array;
     }
     
     // Close the file descriptor (the mapping remains valid)
@@ -310,6 +323,7 @@ bool memory_pool_destroy(mem_pool_t* pool, bool unlink) {
     // Reset the pool structure
     pool->pool_start = NULL;
     pool->free_blocks = NULL;
+    pool->block_array = NULL;
     pool->shm_id = -1;
     
     return success;

@@ -1,4 +1,4 @@
-// mempool_test.c
+// tester.c
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -31,60 +31,57 @@ int main(void) {
 
 // Test basic ring buffer operations
 void test_ring_buffer(void) {
-    // Calculate size needed and create memory for ring buffer
-    const uint32_t capacity = 10;
-    size_t rb_size = ring_buffer_size(capacity);
-    void* rb_memory = malloc(rb_size);
-    assert(rb_memory != NULL);
+    // Create a buffer for 10 pointers
+    void* items[10];
+    ring_buffer_t rb;
     
     // Initialize the ring buffer
-    ring_buffer_t* rb = (ring_buffer_t*)rb_memory;
-    assert(ring_buffer_init(rb, capacity));
+    assert(ring_buffer_init(&rb, items, 10));
     
     // Verify initial state
-    assert(ring_buffer_is_empty(rb));
-    assert(!ring_buffer_is_full(rb));
-    assert(ring_buffer_count(rb) == 0);
+    assert(ring_buffer_is_empty(&rb));
+    assert(!ring_buffer_is_full(&rb));
+    assert(ring_buffer_count(&rb) == 0);
     
     // Test adding items
     int values[15];  // Values to store pointers to
     for (int i = 0; i < 10; i++) {
         values[i] = i + 1;
-        assert(ring_buffer_put(rb, &values[i]));
+        assert(ring_buffer_put(&rb, &values[i]));
     }
     
     // Verify full state
-    assert(!ring_buffer_is_empty(rb));
-    assert(ring_buffer_is_full(rb));
-    assert(ring_buffer_count(rb) == 10);
+    assert(!ring_buffer_is_empty(&rb));
+    assert(ring_buffer_is_full(&rb));
+    assert(ring_buffer_count(&rb) == 10);
     
     // Test adding to a full buffer (should fail)
-    assert(!ring_buffer_put(rb, &values[10]));
+    assert(!ring_buffer_put(&rb, &values[10]));
     
     // Test getting items
     for (int i = 0; i < 5; i++) {
-        void* item = ring_buffer_get(rb);
+        void* item = ring_buffer_get(&rb);
         assert(item != NULL);
         assert(*(int*)item == i + 1);
     }
     
     // Verify partial state
-    assert(!ring_buffer_is_empty(rb));
-    assert(!ring_buffer_is_full(rb));
-    assert(ring_buffer_count(rb) == 5);
+    assert(!ring_buffer_is_empty(&rb));
+    assert(!ring_buffer_is_full(&rb));
+    assert(ring_buffer_count(&rb) == 5);
     
     // Test adding more items (wraparound case)
     for (int i = 0; i < 5; i++) {
         values[i+10] = i + 100;
-        assert(ring_buffer_put(rb, &values[i+10]));
+        assert(ring_buffer_put(&rb, &values[i+10]));
     }
     
     // Verify full state again
-    assert(ring_buffer_is_full(rb));
+    assert(ring_buffer_is_full(&rb));
     
     // Test getting remaining items (including wraparound)
     for (int i = 0; i < 10; i++) {
-        void* item = ring_buffer_get(rb);
+        void* item = ring_buffer_get(&rb);
         assert(item != NULL);
         // First 5 items should be original 6-10, next 5 should be the new 100-104
         if (i < 5) {
@@ -95,20 +92,18 @@ void test_ring_buffer(void) {
     }
     
     // Verify empty state
-    assert(ring_buffer_is_empty(rb));
-    assert(ring_buffer_get(rb) == NULL);
+    assert(ring_buffer_is_empty(&rb));
+    assert(ring_buffer_get(&rb) == NULL);
     
     // Test reset
     for (int i = 0; i < 3; i++) {
-        assert(ring_buffer_put(rb, &values[i]));
+        assert(ring_buffer_put(&rb, &values[i]));
     }
-    assert(ring_buffer_count(rb) == 3);
+    assert(ring_buffer_count(&rb) == 3);
     
-    ring_buffer_reset(rb);
-    assert(ring_buffer_is_empty(rb));
-    assert(ring_buffer_count(rb) == 0);
-    
-    free(rb_memory);
+    ring_buffer_reset(&rb);
+    assert(ring_buffer_is_empty(&rb));
+    assert(ring_buffer_count(&rb) == 0);
 }
 
 // Test memory pool operations
@@ -124,7 +119,7 @@ void test_memory_pool(void) {
     assert(memory_pool_init(&pool, memory, memory_size, block_size));
     
     // Check initial state
-    uint32_t expected_blocks = pool.num_blocks;  // Use the actual number from the pool
+    uint32_t expected_blocks = (memory_size - sizeof(ring_buffer_t)) / (block_size + sizeof(void*));
     assert(memory_pool_free_count(&pool) == expected_blocks);
     assert(memory_pool_used_count(&pool) == 0);
     
@@ -155,13 +150,11 @@ void test_memory_pool(void) {
     assert(!memory_pool_free(&pool, (void*)0x12345678));  // Invalid address
     
     // Test reset functionality
-    uint32_t blocks_to_alloc = expected_blocks / 2;
-    for (uint32_t i = 0; i < blocks_to_alloc; i++) {
+    for (uint32_t i = 0; i < expected_blocks / 2; i++) {
         blocks[i] = memory_pool_alloc(&pool);
     }
-    // Calculate expected free blocks with correct rounding
-    uint32_t expected_free = expected_blocks - blocks_to_alloc;
-    assert(memory_pool_free_count(&pool) == expected_free);
+    assert(memory_pool_free_count(&pool) == expected_blocks / 2);
+    
     assert(memory_pool_reset(&pool));
     assert(memory_pool_free_count(&pool) == expected_blocks);
     

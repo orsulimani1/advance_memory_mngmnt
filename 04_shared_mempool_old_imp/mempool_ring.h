@@ -15,6 +15,7 @@ typedef struct {
     uint32_t block_size;      // Size of each block in bytes
     uint32_t num_blocks;      // Total number of blocks in the pool
     ring_buffer_t* free_blocks; // Ring buffer to track free blocks
+    void** block_array;       // Array used by the ring buffer
     int shm_id;               // Shared memory ID when using shared memory
     char* shm_name;           // Shared memory name
 } mem_pool_t;

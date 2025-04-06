@@ -7,24 +7,24 @@
 /**
  * Ring Buffer Structure
  * A generic circular buffer for storing pointers
+ * Using flexible array member for the buffer
  */
 typedef struct {
-    void** buffer;            // Array of pointers
     uint32_t capacity;        // Maximum number of elements
     uint32_t head;            // Read index
     uint32_t tail;            // Write index
     uint32_t count;           // Number of elements currently in buffer
+    void* buffer[];           // Flexible array member for pointers
 } ring_buffer_t;
 
 /**
  * Initialize a ring buffer
  * 
  * @param rb Pointer to ring buffer structure
- * @param buffer Array to use for storing pointers
  * @param capacity Maximum number of elements the buffer can hold
  * @return true on success, false on failure
  */
-bool ring_buffer_init(ring_buffer_t* rb, void** buffer, uint32_t capacity);
+bool ring_buffer_init(ring_buffer_t* rb, uint32_t capacity);
 
 /**
  * Add an item to the ring buffer
@@ -72,4 +72,13 @@ uint32_t ring_buffer_count(const ring_buffer_t* rb);
  * @param rb Pointer to ring buffer
  */
 void ring_buffer_reset(ring_buffer_t* rb);
+
+/**
+ * Get memory size required for a ring buffer with given capacity
+ *
+ * @param capacity Desired capacity of the ring buffer
+ * @return Size in bytes needed for the ring buffer structure
+ */
+size_t ring_buffer_size(uint32_t capacity);
+
 #endif

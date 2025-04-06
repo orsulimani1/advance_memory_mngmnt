@@ -7,34 +7,27 @@
 
 /**
  * Ring Buffer Structure for Multi-Producer Multi-Consumer (MPMC)
- * Thread-safe circular buffer for storing pointers using flexible array member
+ * Thread-safe circular buffer for storing pointers
  */
 typedef struct {
+    void** buffer;            // Array of pointers
     uint32_t capacity;        // Maximum number of elements
     atomic_uint head;         // Read index (atomic for thread safety)
     atomic_uint tail;         // Write index (atomic for thread safety)
     atomic_uint count;        // Number of elements currently in buffer
     atomic_uint producer_lock; // Lock for producers
     atomic_uint consumer_lock; // Lock for consumers
-    void* buffer[];           // Flexible array member for pointers
 } ring_buffer_t;
-
-/**
- * Get memory size required for a ring buffer with given capacity
- *
- * @param capacity Desired capacity of the ring buffer
- * @return Size in bytes needed for the ring buffer structure
- */
-size_t ring_buffer_size(uint32_t capacity);
 
 /**
  * Initialize a ring buffer
  * 
  * @param rb Pointer to ring buffer structure
+ * @param buffer Array to use for storing pointers
  * @param capacity Maximum number of elements the buffer can hold
  * @return true on success, false on failure
  */
-bool ring_buffer_init(ring_buffer_t* rb, uint32_t capacity);
+bool ring_buffer_init(ring_buffer_t* rb, void** buffer, uint32_t capacity);
 
 /**
  * Add an item to the ring buffer (thread-safe)
